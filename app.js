@@ -10,6 +10,7 @@ function criarApp({ model = new ClienteModel() } = {}) {
   const controller = criarClienteController(model);
 
   app.set('view engine', 'ejs');
+  app.engine('ejs', require('ejs').__express); // referência explícita: faz a Vercel incluir o ejs no deploy
   app.set('views', path.join(__dirname, 'views'));
   app.use(cors());
   app.use(express.json({ limit: '20kb' }));

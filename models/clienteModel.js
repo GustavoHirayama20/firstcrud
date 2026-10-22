@@ -1,9 +1,13 @@
 const fs = require('node:fs/promises');
+const os = require('node:os');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 
 class ClienteModel {
-  constructor(filePath = path.join(__dirname, '..', 'data', 'clientes.json')) {
+  // Na Vercel o disco é somente leitura, exceto /tmp (dados temporários, não permanentes).
+  constructor(filePath = process.env.VERCEL
+    ? path.join(os.tmpdir(), 'clientes.json')
+    : path.join(__dirname, '..', 'data', 'clientes.json')) {
     this.filePath = filePath;
     this.queue = Promise.resolve();
   }
