@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101a2e">
+  <title>Clientes | CRUD MVC</title>
+  <link rel="stylesheet" href="/public/styles.css">
+</head>
+<body>
+  <main class="layout">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Página inicial"><span class="brand-mark">C</span><span>clientes<span class="brand-dot">.</span></span></a>
+      <a class="api-link" href="/api" target="_blank" rel="noreferrer">Documentação da API <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <section class="intro">
+      <p class="eyebrow"><span class="status-dot"></span> NODE.JS · EXPRESS · MVC</p>
+      <h1>Gestão de clientes</h1>
+      <p class="subtitle">Organize os contactos num só lugar. Os dados são guardados localmente e também estão disponíveis pela API REST.</p>
+    </section>
+
+    <section class="content-grid">
+      <section class="card form-card" aria-labelledby="form-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">FORMULÁRIO</p><h2 id="form-title">Novo cliente</h2></div>
+          <span class="step-number">01</span>
+        </div>
+        <form id="cliente-form" novalidate>
+          <input type="hidden" id="cliente-id">
+          <label for="nome">Nome <span>*</span></label>
+          <input id="nome" name="nome" type="text" maxlength="120" placeholder="Ex.: Ana Costa" autocomplete="name" required>
+          <label for="email">E-mail <span>*</span></label>
+          <input id="email" name="email" type="email" maxlength="254" placeholder="ana@email.com" autocomplete="email" required>
+          <p id="form-feedback" class="feedback" role="status" aria-live="polite"></p>
+          <div class="form-actions">
+            <button class="button button-primary" type="submit" id="submit-button"><span id="submit-label">Cadastrar cliente</span><span aria-hidden="true">→</span></button>
+            <button class="button button-quiet hidden" type="button" id="cancel-edit">Cancelar</button>
+          </div>
+        </form>
+        <div class="form-note"><span class="note-icon">i</span><span>O identificador é gerado automaticamente para cada novo cliente.</span></div>
+      </section>
+
+      <section class="card list-card" aria-labelledby="list-title">
+        <div class="section-heading list-heading">
+          <div><p class="eyebrow">BASE DE DADOS</p><h2 id="list-title">Clientes cadastrados <span class="count" id="client-count">0</span></h2></div>
+          <button class="refresh-button" id="refresh-button" type="button" aria-label="Atualizar lista" title="Atualizar lista">↻</button>
+        </div>
+        <div id="list-feedback" class="list-feedback" role="status" aria-live="polite"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>NOME</th><th>E-MAIL</th><th class="actions-heading">AÇÕES</th></tr></thead>
+            <tbody id="clientes-lista"></tbody>
+          </table>
+          <div class="empty-state hidden" id="empty-state"><span class="empty-icon">◎</span><strong>A lista ainda está vazia</strong><span>Cadastre o primeiro cliente usando o formulário.</span></div>
+        </div>
+        <div class="list-footer"><span><span class="status-dot"></span> API REST pronta</span><code>GET /api/clientes</code></div>
+      </section>
+    </section>
+
+    <footer class="footer"><span>CRUD de Clientes <span class="footer-separator">/</span> Projeto MVC</span><a href="/api/clientes" target="_blank" rel="noreferrer">Ver resposta JSON <span aria-hidden="true">↗</span></a></footer>
+  </main>
+  <script>
+    const API_URL = '/api/clientes';
+    const form = document.querySelector('#cliente-form');
+    const idInput = document.querySelector('#cliente-id');
+    const nomeInput = document.querySelector('#nome');
+    const emailInput = document.querySelector('#email');
+    const submitLabel = document.querySelector('#submit-label');
+    const feedback = document.querySelector('#form-feedback');
+    const rows = document.querySelector('#clientes-lista');
+    const count = document.querySelector('#client-count');
+    const emptyState = document.querySelector('#empty-state');
+    const listFeedback = document.querySelector('#list-feedback');
+
+    function mostrarFeedback(elemento, mensagem, tipo = '') {
+      elemento.textContent = mensagem;
+      elemento.className = elemento === feedback ? `feedback ${tipo}` : `list-feedback ${tipo}`;
+    }
+
+    async function carregarClientes() {
+      listFeedback.textContent = 'A carregar clientes…';
+      try {
+        const resposta = await fetch(API_URL);
+        if (!resposta.ok) throw new Error('Não foi possível carregar os clientes.');
+        const clientes = await resposta.json();
+        rows.replaceChildren();
+        count.textContent = clientes.length;
+        emptyState.classList.toggle('hidden', clientes.length > 0);
+        clientes.forEach((cliente) => {
+          const tr = document.createElement('tr');
+          const nomeTd = document.createElement('td');
+          const nomeWrap = document.createElement('div');
+          nomeWrap.className = 'client-name';
+          const initials = document.createElement('span');
+          initials.className = 'avatar';
+          initials.textContent = cliente.nome.trim().split(/\s+/).slice(0, 2).map((parte) => parte[0]).join('').toUpperCase();
+          const nome = document.createElement('span');
+          nome.textContent = cliente.nome;
+          nomeWrap.append(initials, nome);
+          nomeTd.append(nomeWrap);
+          const emailTd = document.createElement('td');
+          emailTd.className = 'email-cell';
+          emailTd.textContent = cliente.email;
+          const actions = document.createElement('td');
+          actions.className = 'row-actions';
+          const editar = document.createElement('button');
+          editar.className = 'icon-button';
+          editar.type = 'button';
+          editar.textContent = 'Editar';
+          editar.setAttribute('aria-label', `Editar ${cliente.nome}`);
+          editar.addEventListener('click', () => iniciarEdicao(cliente));
+          const excluir = document.createElement('button');
+          excluir.className = 'icon-button delete-button';
+          excluir.type = 'button';
+          excluir.textContent = 'Excluir';
+          excluir.setAttribute('aria-label', `Excluir ${cliente.nome}`);
+          excluir.addEventListener('click', () => apagarCliente(cliente));
+          actions.append(editar, excluir);
+          tr.append(nomeTd, emailTd, actions);
+          rows.append(tr);
+        });
+        listFeedback.textContent = '';
+      } catch (erro) {
+        mostrarFeedback(listFeedback, erro.message, 'error');
+      }
+    }
+
+    function iniciarEdicao(cliente) {
+      idInput.value = cliente.id;
+      nomeInput.value = cliente.nome;
+      emailInput.value = cliente.email;
+      submitLabel.textContent = 'Guardar alterações';
+      document.querySelector('#form-title').textContent = 'Editar cliente';
+      document.querySelector('#cancel-edit').classList.remove('hidden');
+      mostrarFeedback(feedback, 'A editar o cliente selecionado.');
+      nomeInput.focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function limparFormulario() {
+      form.reset();
+      idInput.value = '';
+      submitLabel.textContent = 'Cadastrar cliente';
+      document.querySelector('#form-title').textContent = 'Novo cliente';
+      document.querySelector('#cancel-edit').classList.add('hidden');
+      mostrarFeedback(feedback, '');
+    }
+
+    async function apagarCliente(cliente) {
+      if (!window.confirm(`Excluir o cliente ${cliente.nome}?`)) return;
+      try {
+        const resposta = await fetch(`${API_URL}/${encodeURIComponent(cliente.id)}`, { method: 'DELETE' });
+        const resultado = await resposta.json();
+        if (!resposta.ok) throw new Error(resultado.erro || 'Não foi possível excluir o cliente.');
+        if (idInput.value === cliente.id) limparFormulario();
+        carregarClientes();
+      } catch (erro) {
+        mostrarFeedback(listFeedback, erro.message, 'error');
+      }
+    }
+
+    form.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const id = idInput.value;
+      const editando = Boolean(id);
+      const url = editando ? `${API_URL}/${encodeURIComponent(id)}` : API_URL;
+      try {
+        const resposta = await fetch(url, {
+          method: editando ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nome: nomeInput.value, email: emailInput.value }),
+        });
+        const resultado = await resposta.json();
+        if (!resposta.ok) throw new Error(resultado.detalhes?.join(' ') || resultado.erro || 'Não foi possível salvar o cliente.');
+        limparFormulario();
+        mostrarFeedback(feedback, editando ? 'Alterações guardadas com sucesso.' : 'Cliente cadastrado com sucesso.', 'success');
+        carregarClientes();
+      } catch (erro) {
+        mostrarFeedback(feedback, erro.message, 'error');
+      }
+    });
+
+    document.querySelector('#cancel-edit').addEventListener('click', limparFormulario);
+    document.querySelector('#refresh-button').addEventListener('click', carregarClientes);
+    carregarClientes();
+  </script>
+</body>
+</html>
